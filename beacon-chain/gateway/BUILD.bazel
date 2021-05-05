@@ -1,14 +1,17 @@
 # gazelle:ignore
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@prysm//tools/go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
 
 go_library(
     name = "go_default_library",
     srcs = [
+        "api_middleware.go",
         "cors.go",
         "gateway.go",
         "handlers.go",
-        "log.go",
+        "json_structs.go",
         "jsonpbhex.go",
+        "log.go",
         "pathparser.go",
     ],
     importpath = "github.com/prysmaticlabs/prysm/beacon-chain/gateway",
@@ -19,11 +22,12 @@ go_library(
     deps = [
         "//proto/beacon/rpc/v1:go_default_library",
         "//shared:go_default_library",
+        "@com_github_gorilla_mux//:go_default_library",
         "@com_github_grpc_ecosystem_grpc_gateway_v2//runtime:go_default_library",
         "@com_github_grpc_ecosystem_grpc_gateway_v2//utilities:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
-        "@com_github_prysmaticlabs_ethereumapis//eth/v1alpha1:go_default_library",
         "@com_github_prysmaticlabs_ethereumapis//eth/v1:go_default_library",
+        "@com_github_prysmaticlabs_ethereumapis//eth/v1alpha1:go_default_library",
         "@com_github_rs_cors//:go_default_library",
         "@com_github_sirupsen_logrus//:go_default_library",
         "@io_bazel_rules_go//proto/wkt:field_mask_go_proto",
@@ -33,10 +37,20 @@ go_library(
         "@org_golang_google_grpc//grpclog:go_default_library",
         "@org_golang_google_protobuf//encoding/protojson:go_default_library",
         "@org_golang_google_protobuf//proto:go_default_library",
-        "@org_golang_google_protobuf//types/known/wrapperspb:go_default_library",
-        "@org_golang_google_protobuf//types/known/timestamppb:go_default_library",
-        "@org_golang_google_protobuf//types/known/durationpb:go_default_library",
-        "@org_golang_google_protobuf//reflect/protoregistry:go_default_library",
         "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",
+        "@org_golang_google_protobuf//reflect/protoregistry:go_default_library",
+        "@org_golang_google_protobuf//types/known/durationpb:go_default_library",
+        "@org_golang_google_protobuf//types/known/timestamppb:go_default_library",
+        "@org_golang_google_protobuf//types/known/wrapperspb:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["jsonpbhex_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "@com_github_prysmaticlabs_ethereumapis//eth/v1:go_default_library",
+        "@org_golang_google_protobuf//proto:go_default_library",
     ],
 )

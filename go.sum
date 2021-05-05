@@ -415,6 +415,7 @@ github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1/go.mod h1:wJfORR
 github.com/gordonklaus/ineffassign v0.0.0-20200309095847-7953dde2c7bf/go.mod h1:cuNKsD1zp2v6XfE/orVX2QE1LC+i254ceGcVeDT3pTU=
 github.com/gorilla/context v1.1.1/go.mod h1:kBGZzfjB9CEq2AlWe17Uuf7NDRt0dE0s8S51q0aT7Yg=
 github.com/gorilla/mux v1.6.2/go.mod h1:1lud6UwP+6orDFRuTfBEV8e9/aOM/c4fVVCaMa2zaAs=
+github.com/gorilla/mux v1.7.3 h1:gnP5JzjVOuiZD07fKKToCAOjS0yOpj/qPETTXCCS6hw=
 github.com/gorilla/mux v1.7.3/go.mod h1:1lud6UwP+6orDFRuTfBEV8e9/aOM/c4fVVCaMa2zaAs=
 github.com/gorilla/websocket v0.0.0-20170926233335-4201258b820c/go.mod h1:E7qHFY5m1UJ88s3WnNqhKjPHQ0heANvMoAMk2YaljkQ=
 github.com/gorilla/websocket v1.4.1/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
@@ -1062,10 +1063,6 @@ github.com/prysmaticlabs/bazel-go-ethereum v0.0.0-20210420143944-f4dfc9744288 h1
 github.com/prysmaticlabs/bazel-go-ethereum v0.0.0-20210420143944-f4dfc9744288/go.mod h1:YmSRTZNqAvVUg3BIG8uhT/BOkFk9+R2iCbxw5zOlnWY=
 github.com/prysmaticlabs/eth2-types v0.0.0-20210303084904-c9735a06829d h1:1dN7YAqMN3oAJ0LceWcyv/U4jHLh+5urnSnr4br6zg4=
 github.com/prysmaticlabs/eth2-types v0.0.0-20210303084904-c9735a06829d/go.mod h1:kOmQ/zdobQf7HUohDTifDNFEZfNaSCIY5fkONPL+dWU=
-github.com/prysmaticlabs/ethereumapis v0.0.0-20210415180552-398a82292a20 h1:15AQU+TaTiZpIMnNvzByM3Szb1YmHR7vhswykdlSMGo=
-github.com/prysmaticlabs/ethereumapis v0.0.0-20210415180552-398a82292a20/go.mod h1:a0kvrMazsvz/yGbrGIdx/Xtm5rhf/bfELx81A9pbuG0=
-github.com/prysmaticlabs/ethereumapis v0.0.0-20210429071740-816517af2c5f h1:itc40TjB72Z3zEB8CZiSIgVi4wMY0Bkf2pU5Way7lzI=
-github.com/prysmaticlabs/ethereumapis v0.0.0-20210429071740-816517af2c5f/go.mod h1:a0kvrMazsvz/yGbrGIdx/Xtm5rhf/bfELx81A9pbuG0=
 github.com/prysmaticlabs/ethereumapis v0.0.0-20210429161052-5b3fa960e925 h1:27uz2P8dF2QtxOvmPyXdfi36DlRdp5UJ0ik6nUkgoPI=
 github.com/prysmaticlabs/ethereumapis v0.0.0-20210429161052-5b3fa960e925/go.mod h1:a0kvrMazsvz/yGbrGIdx/Xtm5rhf/bfELx81A9pbuG0=
 github.com/prysmaticlabs/go-bitfield v0.0.0-20210202205921-7fcea7c45dc8 h1:18+Qqobq3HAUY0hgIhPGSqmLFnaLLocemmU7+Sj2aYQ=

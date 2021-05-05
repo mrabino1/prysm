@@ -72,11 +72,8 @@ func (g *Gateway) Start() {
 	)
 
 	gwmuxV1 := gwruntime.NewServeMux(
-		gwruntime.SetQueryParameterParser(
-			currentQueryParser,
-		),
 		gwruntime.WithMarshalerOption(gwruntime.MIMEWildcard, &gwruntime.HTTPBodyMarshaler{
-			Marshaler: &JSONPbHex{
+			Marshaler: &gwruntime.JSONPb{
 				MarshalOptions: protojson.MarshalOptions{
 					UseProtoNames:   true,
 					EmitUnpopulated: true,
@@ -130,6 +127,11 @@ func (g *Gateway) Start() {
 			g.startFailure = err
 			return
 		}
+
+	}()
+
+	go func() {
+		registerApiMiddleware()
 	}()
 }
 
