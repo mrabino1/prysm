@@ -131,7 +131,7 @@ func (g *Gateway) Start() {
 	}()
 
 	go func() {
-		registerApiMiddleware()
+		registerApiMiddleware(g.gatewayAddr)
 	}()
 }
 

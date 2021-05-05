@@ -15,17 +15,16 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func registerApiMiddleware() {
+func registerApiMiddleware(gatewayAddress string) {
 	r := mux.NewRouter()
-	handleApiEndpoint(r, "/eth/v1/beacon/states/{state_id}/fork", &StateForkResponseJson{})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/fork", &StateForkResponseJson{})
 	// TODO: make configurable?
 	if err := http.ListenAndServe(":4500", r); err != nil {
 		panic(err)
 	}
 }
 
-// TODO: interface param
-func handleApiEndpoint(r *mux.Router, endpoint string, m *StateForkResponseJson) {
+func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, m interface{}) {
 	r.HandleFunc(endpoint, func(writer http.ResponseWriter, request *http.Request) {
 		// Structs for body deserialization.
 		e := ErrorJson{}
@@ -50,8 +49,7 @@ func handleApiEndpoint(r *mux.Router, endpoint string, m *StateForkResponseJson)
 			request.ContentLength = int64(len(j))
 		}
 		request.URL.Scheme = "http"
-		// TODO: config value
-		request.URL.Host = "127.0.0.1:3500"
+		request.URL.Host = gatewayAddress
 		request.RequestURI = ""
 
 		splitEndpoint := strings.Split(endpoint, "/")
