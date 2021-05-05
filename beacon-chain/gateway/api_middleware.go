@@ -54,11 +54,10 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, m 
 
 		splitEndpoint := strings.Split(endpoint, "/")
 		for i, s := range splitEndpoint {
-			// TODO: block_id
-			if s == "{state_id}" {
-				stateId := base64.StdEncoding.EncodeToString([]byte(mux.Vars(request)["state_id"]))
+			if s == "{state_id}" || s == "{block_id}" {
+				routeVar := base64.StdEncoding.EncodeToString([]byte(mux.Vars(request)[s[1:len(s)-1]]))
 				splitPath := strings.Split(request.URL.Path, "/")
-				splitPath[i] = stateId
+				splitPath[i] = routeVar
 				request.URL.Path = strings.Join(splitPath, "/")
 				break
 			}
