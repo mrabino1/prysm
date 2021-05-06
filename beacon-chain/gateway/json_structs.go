@@ -21,7 +21,7 @@ type StateRootResponse_StateRootJson struct {
 	StateRoot string `json:"state_root" hex:"true"`
 }
 
-// TODO
+// beacon/states/{state_id}/fork
 type StateForkResponseJson struct {
 	Data *ForkJson `json:"data"`
 }
@@ -29,6 +29,22 @@ type ForkJson struct {
 	PreviousVersion string `json:"previous_version" hex:"true"`
 	CurrentVersion  string `json:"current_version" hex:"true"`
 	Epoch           string `json:"epoch"`
+}
+
+// beacon/states/{state_id}/finality_checkpoints
+type StateFinalityCheckpointResponseJson struct {
+	Data *StateFinalityCheckpointResponse_StateFinalityCheckpointJson `json:"data"`
+}
+type StateFinalityCheckpointResponse_StateFinalityCheckpointJson struct {
+	PreviousJustified *CheckpointJson `json:"previous_justified"`
+	CurrentJustified  *CheckpointJson `json:"current_justified"`
+	Finalized         *CheckpointJson `json:"finalized"`
+}
+
+// Reusable types.
+type CheckpointJson struct {
+	Epoch string `json:"epoch"`
+	Root  string `json:"root" hex:"true"`
 }
 
 type ErrorJson struct {
