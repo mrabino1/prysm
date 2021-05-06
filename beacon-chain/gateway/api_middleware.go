@@ -17,6 +17,8 @@ import (
 
 func registerApiMiddleware(gatewayAddress string) {
 	r := mux.NewRouter()
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/genesis", &GenesisResponseJson{})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/root", &StateRootResponseJson{})
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/fork", &StateForkResponseJson{})
 	// TODO: make configurable?
 	if err := http.ListenAndServe(":4500", r); err != nil {
