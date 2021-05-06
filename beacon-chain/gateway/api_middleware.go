@@ -22,6 +22,7 @@ func registerApiMiddleware(gatewayAddress string) {
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/root", &StateRootResponseJson{})
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/fork", &StateForkResponseJson{})
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/finality_checkpoints", &StateFinalityCheckpointResponseJson{})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/headers/{block_id}", &BlockHeaderResponseJson{})
 
 	// TODO: make configurable?
 	if err := http.ListenAndServe(":4500", r); err != nil {

@@ -41,12 +41,38 @@ type StateFinalityCheckpointResponse_StateFinalityCheckpointJson struct {
 	Finalized         *CheckpointJson `json:"finalized"`
 }
 
+// beacon/headers/{block_id}
+type BlockHeaderResponseJson struct {
+	Data *BlockHeaderContainerJson `json:"data"`
+}
+
 // Reusable types.
 type CheckpointJson struct {
 	Epoch string `json:"epoch"`
 	Root  string `json:"root" hex:"true"`
 }
+type BlockHeaderContainerJson struct {
+	Root      string                          `json:"root" hex:"true"`
+	Canonical bool                            `json:"canonical"`
+	Header    *BeaconBlockHeaderContainerJson `json:"header"`
+}
+type BeaconBlockHeaderContainerJson struct {
+	Message   *BeaconBlockHeaderJson `json:"message"`
+	Signature string                 `json:"signature" hex:"true"`
+}
+type SignedBeaconBlockHeaderJson struct {
+	Header    *BeaconBlockHeaderJson `json:"header"`
+	Signature string                 `json:"signature" hex:"true"`
+}
+type BeaconBlockHeaderJson struct {
+	Slot          string `json:"slot"`
+	ProposerIndex string `json:"proposer_index"`
+	ParentRoot    string `json:"parent_root" hex:"true"`
+	StateRoot     string `json:"state_root" hex:"true"`
+	BodyRoot      string `json:"body_root" hex:"true"`
+}
 
+// Error handling.
 type ErrorJson struct {
 	Message string `json:"message"`
 }
