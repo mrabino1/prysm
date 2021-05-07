@@ -55,6 +55,11 @@ type BlockRootResponseJson struct {
 	Data *BlockRootContainerJson `json:"data"`
 }
 
+// beacon/blocks/{block_id}/attestations
+type BlockAttestationsResponseJson struct {
+	Data []*AttestationJson `json:"data"`
+}
+
 // Reusable types.
 type CheckpointJson struct {
 	Epoch string `json:"epoch"`
