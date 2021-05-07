@@ -60,6 +60,11 @@ type BlockAttestationsResponseJson struct {
 	Data []*AttestationJson `json:"data"`
 }
 
+// beacon/pool/attester_slashings
+type AttesterSlashingsPoolResponseJson struct {
+	Data []*AttesterSlashingJson `json:"data"`
+}
+
 // Reusable types.
 type CheckpointJson struct {
 	Epoch string `json:"epoch"`
