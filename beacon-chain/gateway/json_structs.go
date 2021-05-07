@@ -50,10 +50,18 @@ type BlockResponseJson struct {
 	Data *BeaconBlockContainerJson `json:"data"`
 }
 
+// beacon/blocks/{block_id}/root
+type BlockRootResponseJson struct {
+	Data *BlockRootContainerJson `json:"data"`
+}
+
 // Reusable types.
 type CheckpointJson struct {
 	Epoch string `json:"epoch"`
 	Root  string `json:"root" hex:"true"`
+}
+type BlockRootContainerJson struct {
+	Root string `json:"root" hex:"true"`
 }
 type BeaconBlockContainerJson struct {
 	Message   *BeaconBlockJson `json:"message"`
