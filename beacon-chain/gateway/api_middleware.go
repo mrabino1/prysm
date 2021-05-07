@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gorilla/mux"
+	"github.com/wealdtech/go-bytesutil"
 )
 
 func registerApiMiddleware(gatewayAddress string) {
@@ -23,6 +25,7 @@ func registerApiMiddleware(gatewayAddress string) {
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/fork", &StateForkResponseJson{})
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/finality_checkpoints", &StateFinalityCheckpointResponseJson{})
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/headers/{block_id}", &BlockHeaderResponseJson{})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks", &BeaconBlockContainerJson{})
 
 	// TODO: make configurable?
 	if err := http.ListenAndServe(":4500", r); err != nil {
@@ -41,9 +44,17 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, m 
 				panic(err)
 			}
 			// Encode all fields tagged 'bytes' into a base64 string.
-			processHexField(m, func(v reflect.Value) {
-				v.SetString(base64.StdEncoding.EncodeToString([]byte(v.String())))
-			})
+			if err := processHexField(m, func(v reflect.Value) error {
+				b, err := bytesutil.FromHexString(v.String())
+				if err != nil {
+					return err
+				}
+				v.SetString(base64.StdEncoding.EncodeToString(b))
+				return nil
+			}); err != nil {
+				log.WithError(err).Error("Could not handle API call")
+			}
+
 			// Serialize the struct, which now includes a base64-encoded value, into JSON.
 			j, err := json.Marshal(m)
 			if err != nil {
@@ -99,13 +110,16 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, m 
 				panic(err)
 			}
 			// Decode all fields tagged 'bytes' from a base64 string.
-			processHexField(m, func(v reflect.Value) {
+			if err := processHexField(m, func(v reflect.Value) error {
 				b, err := base64.StdEncoding.DecodeString(v.Interface().(string))
 				if err != nil {
-					panic(err)
+					return err
 				}
 				v.SetString(hexutil.Encode(b))
-			})
+				return nil
+			}); err != nil {
+				log.WithError(err).Error("Could not handle API call")
+			}
 			// Serialize the return value into JSON.
 			j, err = json.Marshal(m)
 			if err != nil {
@@ -133,29 +147,49 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, m 
 
 // processHexField calls 'processor' on any field that has the 'bytes' tag set.
 // It is a recursive function.
-func processHexField(s interface{}, processor func(value reflect.Value)) {
+func processHexField(s interface{}, processor func(value reflect.Value) error) error {
 	t := reflect.TypeOf(s).Elem()
 	v := reflect.Indirect(reflect.ValueOf(s))
 
 	for i := 0; i < t.NumField(); i++ {
 		switch v.Field(i).Kind() {
 		case reflect.Slice:
-			kind := reflect.TypeOf(v.Field(i)).Kind()
-			if kind == reflect.Struct {
-				for j := 0; j < v.Field(i).Len(); j++ {
-					processHexField(v.Field(i).Index(j).Interface(), processor)
+			sliceElem := t.Field(i).Type.Elem()
+			kind := sliceElem.Kind()
+			if kind == reflect.Ptr {
+				if sliceElem.Elem().Kind() == reflect.Struct {
+					for j := 0; j < v.Field(i).Len(); j++ {
+						if err := processHexField(v.Field(i).Index(j).Interface(), processor); err != nil {
+							return fmt.Errorf("could not process field: %w", err)
+						}
+					}
+				}
+			}
+			if kind == reflect.String {
+				_, isBytes := t.Field(i).Tag.Lookup("hex")
+				if isBytes {
+					for j := 0; j < v.Field(i).Len(); j++ {
+						if err := processor(v.Field(i).Index(j)); err != nil {
+							return fmt.Errorf("could not process field: %w", err)
+						}
+					}
 				}
 			}
 		case reflect.Ptr:
 			if v.Field(i).Elem().Kind() == reflect.Struct {
-				processHexField(v.Field(i).Interface(), processor)
+				if err := processHexField(v.Field(i).Interface(), processor); err != nil {
+					return fmt.Errorf("could not process field: %w", err)
+				}
 			}
 		default:
 			f := t.Field(i)
 			_, isBytes := f.Tag.Lookup("hex")
 			if isBytes {
-				processor(v.Field(i))
+				if err := processor(v.Field(i)); err != nil {
+					return fmt.Errorf("could not process field: %w", err)
+				}
 			}
 		}
 	}
+	return nil
 }
