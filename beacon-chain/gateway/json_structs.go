@@ -65,6 +65,11 @@ type AttesterSlashingsPoolResponseJson struct {
 	Data []*AttesterSlashingJson `json:"data"`
 }
 
+// beacon/pool/proposer_slashings
+type ProposerSlashingsPoolResponseJson struct {
+	Data []*ProposerSlashingJson `json:"data"`
+}
+
 // Reusable types.
 type CheckpointJson struct {
 	Epoch string `json:"epoch"`
