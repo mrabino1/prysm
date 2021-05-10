@@ -55,8 +55,13 @@ type BlockRootResponseJson struct {
 	Data *BlockRootContainerJson `json:"data"`
 }
 
-// beacon/blocks/{block_id}/attestations
+// beacon/blocks/{block_id}/attestations (GET)
 type BlockAttestationsResponseJson struct {
+	Data []*AttestationJson `json:"data"`
+}
+
+// beacon/blocks/{block_id}/attestations (POST)
+type SubmitAttestationRequestJson struct {
 	Data []*AttestationJson `json:"data"`
 }
 
@@ -68,6 +73,11 @@ type AttesterSlashingsPoolResponseJson struct {
 // beacon/pool/proposer_slashings
 type ProposerSlashingsPoolResponseJson struct {
 	Data []*ProposerSlashingJson `json:"data"`
+}
+
+// beacon/pool/voluntary_exits
+type VoluntaryExitsPoolResponseJson struct {
+	Data []*SignedVoluntaryExitJson `json:"data"`
 }
 
 // Reusable types.

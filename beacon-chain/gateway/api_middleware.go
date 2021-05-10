@@ -17,39 +17,45 @@ import (
 	"github.com/wealdtech/go-bytesutil"
 )
 
+type endpointData struct {
+	postRequest interface{}
+	getResponse interface{}
+}
+
 func registerApiMiddleware(gatewayAddress string) {
 	r := mux.NewRouter()
 
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/genesis", &GenesisResponseJson{})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/root", &StateRootResponseJson{})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/fork", &StateForkResponseJson{})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/finality_checkpoints", &StateFinalityCheckpointResponseJson{})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/headers/{block_id}", &BlockHeaderResponseJson{})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks", &BeaconBlockContainerJson{})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks/{block_id}", &BlockResponseJson{})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks/{block_id}/root", &BlockRootResponseJson{})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks/{block_id}/attestations", &BlockAttestationsResponseJson{})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/pool/attester_slashings", &AttesterSlashingsPoolResponseJson{})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/pool/proposer_slashings", &ProposerSlashingsPoolResponseJson{})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/genesis", endpointData{getResponse: &GenesisResponseJson{}})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/root", endpointData{getResponse: &StateRootResponseJson{}})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/fork", endpointData{getResponse: &StateForkResponseJson{}})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/finality_checkpoints", endpointData{getResponse: &StateFinalityCheckpointResponseJson{}})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/headers/{block_id}", endpointData{getResponse: &BlockHeaderResponseJson{}})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks", endpointData{getResponse: &BeaconBlockContainerJson{}})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks/{block_id}", endpointData{getResponse: &BlockResponseJson{}})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks/{block_id}/root", endpointData{getResponse: &BlockRootResponseJson{}})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks/{block_id}/attestations", endpointData{getResponse: &BlockAttestationsResponseJson{}})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/pool/attestations", endpointData{postRequest: &SubmitAttestationRequestJson{}, getResponse: &BlockAttestationsResponseJson{}})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/pool/attester_slashings", endpointData{postRequest: &AttesterSlashingJson{}, getResponse: &AttesterSlashingsPoolResponseJson{}})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/pool/proposer_slashings", endpointData{postRequest: &ProposerSlashingJson{}, getResponse: &ProposerSlashingsPoolResponseJson{}})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/pool/voluntary_exits", endpointData{postRequest: &SignedVoluntaryExitJson{}, getResponse: &VoluntaryExitsPoolResponseJson{}})
 
-	// TODO: make configurable?
 	if err := http.ListenAndServe(":4500", r); err != nil {
 		panic(err)
 	}
 }
 
-func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, m interface{}) {
+func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, data endpointData) {
 	r.HandleFunc(endpoint, func(writer http.ResponseWriter, request *http.Request) {
 		// Structs for body deserialization.
 		e := ErrorJson{}
 
 		if request.Method == "POST" {
 			// Deserialize the body into the 'm' struct, and post it to grpc-gateway.
-			if err := json.NewDecoder(request.Body).Decode(&m); err != nil {
+			if err := json.NewDecoder(request.Body).Decode(&data.postRequest); err != nil {
 				panic(err)
 			}
 			// Encode all fields tagged 'bytes' into a base64 string.
-			if err := processHexField(m, func(v reflect.Value) error {
+			if err := processHexField(data.postRequest, func(v reflect.Value) error {
 				b, err := bytesutil.FromHexString(v.String())
 				if err != nil {
 					return err
@@ -61,7 +67,7 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, m 
 			}
 
 			// Serialize the struct, which now includes a base64-encoded value, into JSON.
-			j, err := json.Marshal(m)
+			j, err := json.Marshal(data.postRequest)
 			if err != nil {
 				panic(err)
 			}
@@ -111,11 +117,11 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, m 
 			}
 		} else {
 			// Deserialize the output of grpc-gateway's server into the 'm' struct.
-			if err := json.Unmarshal(body, &m); err != nil {
+			if err := json.Unmarshal(body, &data.getResponse); err != nil {
 				panic(err)
 			}
 			// Decode all fields tagged 'bytes' from a base64 string.
-			if err := processHexField(m, func(v reflect.Value) error {
+			if err := processHexField(data.getResponse, func(v reflect.Value) error {
 				b, err := base64.StdEncoding.DecodeString(v.Interface().(string))
 				if err != nil {
 					return err
@@ -126,7 +132,7 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, m 
 				log.WithError(err).Error("Could not handle API call")
 			}
 			// Serialize the return value into JSON.
-			j, err = json.Marshal(m)
+			j, err = json.Marshal(data.getResponse)
 			if err != nil {
 				panic(err)
 			}
