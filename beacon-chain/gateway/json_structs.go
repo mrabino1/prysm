@@ -80,6 +80,11 @@ type VoluntaryExitsPoolResponseJson struct {
 	Data []*SignedVoluntaryExitJson `json:"data"`
 }
 
+// node/identity
+type IdentityResponseJson struct {
+	Data *IdentityJson `json:"data"`
+}
+
 // Reusable types.
 type CheckpointJson struct {
 	Epoch string `json:"epoch"`
@@ -160,7 +165,6 @@ type AttestationDataJson struct {
 	Target          *CheckpointJson `json:"target"`
 }
 type DepositJson struct {
-	// TODO: How to transcode?
 	Proof []string          `json:"proof" hex:"true"`
 	Data  *Deposit_DataJson `json:"data"`
 }
@@ -177,6 +181,17 @@ type SignedVoluntaryExitJson struct {
 type VoluntaryExitJson struct {
 	Epoch          string `json:"epoch"`
 	ValidatorIndex string `json:"validator_index"`
+}
+type IdentityJson struct {
+	PeerId             string        `json:"peer_id"`
+	Enr                string        `json:"enr"`
+	P2PAddresses       []string      `json:"p2p_addresses"`
+	DiscoveryAddresses []string      `json:"discovery_addresses"`
+	Metadata           *MetadataJson `json:"metadata"`
+}
+type MetadataJson struct {
+	SeqNumber string `json:"seq_number"`
+	Attnets   string `json:"attnets" hex:"true"`
 }
 
 // Error handling.

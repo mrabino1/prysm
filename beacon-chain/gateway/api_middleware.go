@@ -49,6 +49,7 @@ func (m *ApiProxyMiddleware) Run() error {
 	m.handleApiEndpoint("/eth/v1/beacon/pool/attester_slashings", endpointData{postRequest: &AttesterSlashingJson{}, getResponse: &AttesterSlashingsPoolResponseJson{}})
 	m.handleApiEndpoint("/eth/v1/beacon/pool/proposer_slashings", endpointData{postRequest: &ProposerSlashingJson{}, getResponse: &ProposerSlashingsPoolResponseJson{}})
 	m.handleApiEndpoint("/eth/v1/beacon/pool/voluntary_exits", endpointData{postRequest: &SignedVoluntaryExitJson{}, getResponse: &VoluntaryExitsPoolResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/node/identity", endpointData{getResponse: &IdentityResponseJson{}})
 
 	return http.ListenAndServe(m.ProxyAddress, m.router)
 }
