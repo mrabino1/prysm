@@ -131,7 +131,11 @@ func (g *Gateway) Start() {
 	}()
 
 	go func() {
-		registerApiMiddleware(g.gatewayAddr)
+		if err := registerApiMiddleware(g.gatewayAddr); err != http.ErrServerClosed {
+			log.WithError(err).Error("Failed to start API middleware")
+			g.startFailure = err
+			return
+		}
 	}()
 }
 

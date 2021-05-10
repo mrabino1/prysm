@@ -22,7 +22,7 @@ type endpointData struct {
 	getResponse interface{}
 }
 
-func registerApiMiddleware(gatewayAddress string) {
+func registerApiMiddleware(gatewayAddress string) error {
 	r := mux.NewRouter()
 
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/genesis", endpointData{getResponse: &GenesisResponseJson{}})
@@ -39,9 +39,7 @@ func registerApiMiddleware(gatewayAddress string) {
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/pool/proposer_slashings", endpointData{postRequest: &ProposerSlashingJson{}, getResponse: &ProposerSlashingsPoolResponseJson{}})
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/pool/voluntary_exits", endpointData{postRequest: &SignedVoluntaryExitJson{}, getResponse: &VoluntaryExitsPoolResponseJson{}})
 
-	if err := http.ListenAndServe(":4500", r); err != nil {
-		panic(err)
-	}
+	return http.ListenAndServe(":4500", r)
 }
 
 func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, data endpointData) {
@@ -49,7 +47,9 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, da
 		if request.Method == "POST" {
 			// Deserialize the body into the 'm' struct, and post it to grpc-gateway.
 			if err := json.NewDecoder(request.Body).Decode(&data.postRequest); err != nil {
-				panic(err)
+				e := fmt.Errorf("could not decode request body: %w", err)
+				writeError(writer, ErrorJson{Message: e.Error()})
+				return
 			}
 			// Posted graffiti needs to have length of 32 bytes.
 			if block, ok := data.postRequest.(*BeaconBlockContainerJson); ok {
@@ -57,7 +57,7 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, da
 				block.Message.Body.Graffiti = hexutil.Encode(b[:])
 			}
 			// Encode all fields tagged 'hex' into a base64 string.
-			if err := processHexField(data.postRequest, func(v reflect.Value) error {
+			if err := processHex(data.postRequest, func(v reflect.Value) error {
 				b, err := bytesutil.FromHexString(v.String())
 				if err != nil {
 					return err
@@ -65,12 +65,16 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, da
 				v.SetString(base64.StdEncoding.EncodeToString(b))
 				return nil
 			}); err != nil {
-				log.WithError(err).Error("Could not handle API call")
+				e := fmt.Errorf("could not process request hex data: %w", err)
+				writeError(writer, ErrorJson{Message: e.Error()})
+				return
 			}
 			// Serialize the struct, which now includes a base64-encoded value, into JSON.
 			j, err := json.Marshal(data.postRequest)
 			if err != nil {
-				panic(err)
+				e := fmt.Errorf("could not marshal request: %w", err)
+				writeError(writer, ErrorJson{Message: e.Error()})
+				return
 			}
 			// Set the body to the new JSON.
 			request.Body = ioutil.NopCloser(bytes.NewReader(j))
@@ -96,38 +100,42 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, da
 
 		grpcResp, err := http.DefaultClient.Do(request)
 		if err != nil {
-			panic(err)
+			e := fmt.Errorf("could not proxy request: %w", err)
+			writeError(writer, ErrorJson{Message: e.Error()})
+			return
 		}
 		if grpcResp == nil {
-			panic("nil response from grpc-gateway")
+			writeError(writer, ErrorJson{Message: "nil response from gRPC-gateway"})
+			return
 		}
 
 		// Deserialize the output of grpc-gateway into the error struct.
 		body, err := ioutil.ReadAll(grpcResp.Body)
 		if err != nil {
-			panic(err)
+			e := fmt.Errorf("could not read response body: %w", err)
+			writeError(writer, ErrorJson{Message: e.Error()})
+			return
 		}
-		e := ErrorJson{}
-		if err := json.Unmarshal(body, &e); err != nil {
-			panic(err)
+		errorJson := ErrorJson{}
+		if err := json.Unmarshal(body, &errorJson); err != nil {
+			e := fmt.Errorf("could not unmarshal error: %w", err)
+			writeError(writer, ErrorJson{Message: e.Error()})
+			return
 		}
 		var j []byte
-		// The output might have contained a 'Not Found' error,
-		// in which case the 'Message' field will be populated.
-		if e.Message != "" {
-			// Serialize the error message into JSON.
-			j, err = json.Marshal(e)
-			if err != nil {
-				panic(err)
-			}
+		if errorJson.Message != "" {
+			writeError(writer, errorJson)
+			return
 		} else {
 			if request.Method == "GET" {
 				// Deserialize the output of grpc-gateway.
 				if err := json.Unmarshal(body, &data.getResponse); err != nil {
-					panic(err)
+					e := fmt.Errorf("could not unmarshal response: %w", err)
+					writeError(writer, ErrorJson{Message: e.Error()})
+					return
 				}
 				// Decode all fields tagged 'hex' from a base64 string.
-				if err := processHexField(data.getResponse, func(v reflect.Value) error {
+				if err := processHex(data.getResponse, func(v reflect.Value) error {
 					b, err := base64.StdEncoding.DecodeString(v.Interface().(string))
 					if err != nil {
 						return err
@@ -135,12 +143,16 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, da
 					v.SetString(hexutil.Encode(b))
 					return nil
 				}); err != nil {
-					log.WithError(err).Error("Could not handle API call")
+					e := fmt.Errorf("could not process response hex data: %w", err)
+					writeError(writer, ErrorJson{Message: e.Error()})
+					return
 				}
 				// Serialize the return value into JSON.
 				j, err = json.Marshal(data.getResponse)
 				if err != nil {
-					panic(err)
+					e := fmt.Errorf("could not marshal response: %w", err)
+					writeError(writer, ErrorJson{Message: e.Error()})
+					return
 				}
 			}
 		}
@@ -151,25 +163,41 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, da
 				writer.Header().Set(h, v)
 			}
 		}
-		if e.Message != "" || request.Method == "GET" {
+		if errorJson.Message != "" || request.Method == "GET" {
 			writer.Header().Set("Content-Length", strconv.Itoa(len(j)))
 			writer.WriteHeader(grpcResp.StatusCode)
 			if _, err := io.Copy(writer, ioutil.NopCloser(bytes.NewReader(j))); err != nil {
-				panic(err)
+				e := fmt.Errorf("could not write response message: %w", err)
+				writeError(writer, ErrorJson{Message: e.Error()})
+				return
 			}
 		} else if request.Method == "POST" {
 			writer.WriteHeader(grpcResp.StatusCode)
 		}
 
 		if err := grpcResp.Body.Close(); err != nil {
-			panic(err)
+			e := fmt.Errorf("could not close response body: %w", err)
+			writeError(writer, ErrorJson{Message: e.Error()})
+			return
 		}
 	})
 }
 
-// processHexField calls 'processor' on any field that has the 'hex' tag set.
+func writeError(writer http.ResponseWriter, e ErrorJson) {
+	j, err := json.Marshal(e)
+	if err != nil {
+		log.WithError(err).Error("could not marshal error message")
+	}
+	writer.Header().Set("Content-Length", strconv.Itoa(len(j)))
+	writer.WriteHeader(http.StatusInternalServerError)
+	if _, err := io.Copy(writer, ioutil.NopCloser(bytes.NewReader(j))); err != nil {
+		log.WithError(err).Error("could not write error message")
+	}
+}
+
+// processHex calls 'processor' on any field that has the 'hex' tag set.
 // It is a recursive function.
-func processHexField(s interface{}, processor func(value reflect.Value) error) error {
+func processHex(s interface{}, processor func(value reflect.Value) error) error {
 	t := reflect.TypeOf(s).Elem()
 	v := reflect.Indirect(reflect.ValueOf(s))
 
@@ -178,13 +206,15 @@ func processHexField(s interface{}, processor func(value reflect.Value) error) e
 		case reflect.Slice:
 			sliceElem := t.Field(i).Type.Elem()
 			kind := sliceElem.Kind()
+			// Recursively process slices to struct pointers.
 			if kind == reflect.Ptr && sliceElem.Elem().Kind() == reflect.Struct {
 				for j := 0; j < v.Field(i).Len(); j++ {
-					if err := processHexField(v.Field(i).Index(j).Interface(), processor); err != nil {
+					if err := processHex(v.Field(i).Index(j).Interface(), processor); err != nil {
 						return fmt.Errorf("could not process field: %w", err)
 					}
 				}
 			}
+			// Process each string in string slices.
 			if kind == reflect.String {
 				_, isBytes := t.Field(i).Tag.Lookup("hex")
 				if isBytes {
@@ -195,16 +225,17 @@ func processHexField(s interface{}, processor func(value reflect.Value) error) e
 					}
 				}
 			}
+		// Recursively process struct pointers.
 		case reflect.Ptr:
 			if v.Field(i).Elem().Kind() == reflect.Struct {
-				if err := processHexField(v.Field(i).Interface(), processor); err != nil {
+				if err := processHex(v.Field(i).Interface(), processor); err != nil {
 					return fmt.Errorf("could not process field: %w", err)
 				}
 			}
 		default:
 			f := t.Field(i)
-			_, isBytes := f.Tag.Lookup("hex")
-			if isBytes {
+			// Process fields with 'hex' tag.
+			if _, isBytes := f.Tag.Lookup("hex"); isBytes {
 				if err := processor(v.Field(i)); err != nil {
 					return fmt.Errorf("could not process field: %w", err)
 				}
