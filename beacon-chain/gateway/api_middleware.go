@@ -17,33 +17,44 @@ import (
 	"github.com/wealdtech/go-bytesutil"
 )
 
+// ApiProxyMiddleware is a proxy between an Eth2 API HTTP client and gRPC-gateway.
+// The purpose of the proxy is to handle HTTP requests and gRPC responses in such a way that:
+//   - Eth2 API requests can be handled by gRPC-gateway correctly
+//   - gRPC responses can be returned as spec-compliant Eth2 API responses
+type ApiProxyMiddleware struct {
+	GatewayAddress string
+	ProxyAddress   string
+	router         *mux.Router
+}
+
 type endpointData struct {
 	postRequest interface{}
 	getResponse interface{}
 }
 
-func registerApiMiddleware(gatewayAddress string) error {
-	r := mux.NewRouter()
+// Run starts the proxy, registering all proxy endpoints on ApiProxyMiddleware.ProxyAddress.
+func (m *ApiProxyMiddleware) Run() error {
+	m.router = mux.NewRouter()
 
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/genesis", endpointData{getResponse: &GenesisResponseJson{}})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/root", endpointData{getResponse: &StateRootResponseJson{}})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/fork", endpointData{getResponse: &StateForkResponseJson{}})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/finality_checkpoints", endpointData{getResponse: &StateFinalityCheckpointResponseJson{}})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/headers/{block_id}", endpointData{getResponse: &BlockHeaderResponseJson{}})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks", endpointData{postRequest: &BeaconBlockContainerJson{}})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks/{block_id}", endpointData{getResponse: &BlockResponseJson{}})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks/{block_id}/root", endpointData{getResponse: &BlockRootResponseJson{}})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks/{block_id}/attestations", endpointData{getResponse: &BlockAttestationsResponseJson{}})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/pool/attestations", endpointData{postRequest: &SubmitAttestationRequestJson{}, getResponse: &BlockAttestationsResponseJson{}})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/pool/attester_slashings", endpointData{postRequest: &AttesterSlashingJson{}, getResponse: &AttesterSlashingsPoolResponseJson{}})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/pool/proposer_slashings", endpointData{postRequest: &ProposerSlashingJson{}, getResponse: &ProposerSlashingsPoolResponseJson{}})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/pool/voluntary_exits", endpointData{postRequest: &SignedVoluntaryExitJson{}, getResponse: &VoluntaryExitsPoolResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/genesis", endpointData{getResponse: &GenesisResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/states/{state_id}/root", endpointData{getResponse: &StateRootResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/states/{state_id}/fork", endpointData{getResponse: &StateForkResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/states/{state_id}/finality_checkpoints", endpointData{getResponse: &StateFinalityCheckpointResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/headers/{block_id}", endpointData{getResponse: &BlockHeaderResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/blocks", endpointData{postRequest: &BeaconBlockContainerJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/blocks/{block_id}", endpointData{getResponse: &BlockResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/blocks/{block_id}/root", endpointData{getResponse: &BlockRootResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/blocks/{block_id}/attestations", endpointData{getResponse: &BlockAttestationsResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/pool/attestations", endpointData{postRequest: &SubmitAttestationRequestJson{}, getResponse: &BlockAttestationsResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/pool/attester_slashings", endpointData{postRequest: &AttesterSlashingJson{}, getResponse: &AttesterSlashingsPoolResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/pool/proposer_slashings", endpointData{postRequest: &ProposerSlashingJson{}, getResponse: &ProposerSlashingsPoolResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/pool/voluntary_exits", endpointData{postRequest: &SignedVoluntaryExitJson{}, getResponse: &VoluntaryExitsPoolResponseJson{}})
 
-	return http.ListenAndServe(":4500", r)
+	return http.ListenAndServe(m.ProxyAddress, m.router)
 }
 
-func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, data endpointData) {
-	r.HandleFunc(endpoint, func(writer http.ResponseWriter, request *http.Request) {
+func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointData) {
+	m.router.HandleFunc(endpoint, func(writer http.ResponseWriter, request *http.Request) {
 		if request.Method == "POST" {
 			// Deserialize the body into the 'm' struct, and post it to grpc-gateway.
 			if err := json.NewDecoder(request.Body).Decode(&data.postRequest); err != nil {
@@ -83,7 +94,7 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, da
 		}
 
 		request.URL.Scheme = "http"
-		request.URL.Host = gatewayAddress
+		request.URL.Host = m.GatewayAddress
 		request.RequestURI = ""
 
 		// Handle hex in URL parameters.
@@ -124,6 +135,12 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, da
 		}
 		var j []byte
 		if errorJson.Message != "" {
+			// Something went wrong, but the request completed, meaning we can write headers and the error message.
+			for h, vs := range grpcResp.Header {
+				for _, v := range vs {
+					writer.Header().Set(h, v)
+				}
+			}
 			writeError(writer, errorJson)
 			return
 		} else {
@@ -163,7 +180,7 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, da
 				writer.Header().Set(h, v)
 			}
 		}
-		if errorJson.Message != "" || request.Method == "GET" {
+		if request.Method == "GET" {
 			writer.Header().Set("Content-Length", strconv.Itoa(len(j)))
 			writer.WriteHeader(grpcResp.StatusCode)
 			if _, err := io.Copy(writer, ioutil.NopCloser(bytes.NewReader(j))); err != nil {
@@ -189,6 +206,7 @@ func writeError(writer http.ResponseWriter, e ErrorJson) {
 		log.WithError(err).Error("could not marshal error message")
 	}
 	writer.Header().Set("Content-Length", strconv.Itoa(len(j)))
+	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusInternalServerError)
 	if _, err := io.Copy(writer, ioutil.NopCloser(bytes.NewReader(j))); err != nil {
 		log.WithError(err).Error("could not write error message")

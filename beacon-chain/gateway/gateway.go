@@ -131,7 +131,11 @@ func (g *Gateway) Start() {
 	}()
 
 	go func() {
-		if err := registerApiMiddleware(g.gatewayAddr); err != http.ErrServerClosed {
+		proxy := &ApiProxyMiddleware{
+			GatewayAddress: g.gatewayAddr,
+			ProxyAddress:   ":4500",
+		}
+		if err := proxy.Run(); err != http.ErrServerClosed {
 			log.WithError(err).Error("Failed to start API middleware")
 			g.startFailure = err
 			return
