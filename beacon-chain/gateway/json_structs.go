@@ -102,7 +102,7 @@ type BeaconBlockJson struct {
 type BeaconBlockBodyJson struct {
 	RandaoReveal      string                     `json:"randao_reveal" hex:"true"`
 	Eth1Data          *Eth1DataJson              `json:"eth1_data"`
-	Graffiti          string                     `json:"graffiti"`
+	Graffiti          string                     `json:"graffiti" hex:"true"`
 	ProposerSlashings []*ProposerSlashingJson    `json:"proposer_slashings"`
 	AttesterSlashings []*AttesterSlashingJson    `json:"attester_slashings"`
 	Attestations      []*AttestationJson         `json:"attestations"`

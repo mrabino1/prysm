@@ -30,7 +30,7 @@ func registerApiMiddleware(gatewayAddress string) {
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/fork", endpointData{getResponse: &StateForkResponseJson{}})
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/states/{state_id}/finality_checkpoints", endpointData{getResponse: &StateFinalityCheckpointResponseJson{}})
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/headers/{block_id}", endpointData{getResponse: &BlockHeaderResponseJson{}})
-	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks", endpointData{getResponse: &BeaconBlockContainerJson{}})
+	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks", endpointData{postRequest: &BeaconBlockContainerJson{}})
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks/{block_id}", endpointData{getResponse: &BlockResponseJson{}})
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks/{block_id}/root", endpointData{getResponse: &BlockRootResponseJson{}})
 	handleApiEndpoint(r, gatewayAddress, "/eth/v1/beacon/blocks/{block_id}/attestations", endpointData{getResponse: &BlockAttestationsResponseJson{}})
@@ -54,6 +54,13 @@ func handleApiEndpoint(r *mux.Router, gatewayAddress string, endpoint string, da
 			if err := json.NewDecoder(request.Body).Decode(&data.postRequest); err != nil {
 				panic(err)
 			}
+
+			// Posted graffiti need to have length of 32 bytes.
+			if block, ok := data.postRequest.(*BeaconBlockContainerJson); ok {
+				b := bytesutil.ToBytes32([]byte(block.Message.Body.Graffiti))
+				block.Message.Body.Graffiti = hexutil.Encode(b[:])
+			}
+
 			// Encode all fields tagged 'bytes' into a base64 string.
 			if err := processHexField(data.postRequest, func(v reflect.Value) error {
 				b, err := bytesutil.FromHexString(v.String())
