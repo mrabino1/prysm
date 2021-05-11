@@ -85,6 +85,11 @@ type IdentityResponseJson struct {
 	Data *IdentityJson `json:"data"`
 }
 
+// node/peers
+type PeersResponseJson struct {
+	Data []*PeerJson `json:"data"`
+}
+
 // Reusable types.
 type CheckpointJson struct {
 	Epoch string `json:"epoch"`
@@ -192,6 +197,13 @@ type IdentityJson struct {
 type MetadataJson struct {
 	SeqNumber string `json:"seq_number"`
 	Attnets   string `json:"attnets" hex:"true"`
+}
+type PeerJson struct {
+	PeerId    string `json:"peer_id"`
+	Enr       string `json:"enr"`
+	Address   string `json:"address"` // TODO: json tag should be "last_seen_p2p_address"
+	State     string `json:"state"`
+	Direction string `json:"direction"`
 }
 
 // Error handling.
