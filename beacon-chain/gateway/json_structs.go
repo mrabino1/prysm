@@ -90,6 +90,11 @@ type PeersResponseJson struct {
 	Data []*PeerJson `json:"data"`
 }
 
+// node/peers/{peer_id}
+type PeerResponseJson struct {
+	Data *PeerJson `json:"data"`
+}
+
 // Reusable types.
 type CheckpointJson struct {
 	Epoch string `json:"epoch"`
