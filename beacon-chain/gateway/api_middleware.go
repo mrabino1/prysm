@@ -54,6 +54,7 @@ func (m *ApiProxyMiddleware) Run() error {
 	m.handleApiEndpoint("/eth/v1/node/peers/{peer_id}", endpointData{getResponse: &PeerResponseJson{}})
 	m.handleApiEndpoint("/eth/v1/node/peer_count", endpointData{getResponse: &PeerCountResponseJson{}})
 	m.handleApiEndpoint("/eth/v1/node/version", endpointData{getResponse: &VersionResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/node/health", endpointData{})
 
 	return http.ListenAndServe(m.ProxyAddress, m.router)
 }
@@ -145,7 +146,8 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 			writeError(writer, errorJson)
 			return
 		} else {
-			if request.Method == "GET" {
+			// Don't do anything if the response is only a status code.
+			if request.Method == "GET" && data.getResponse != nil {
 				// Deserialize the output of grpc-gateway.
 				if err := json.Unmarshal(body, &data.getResponse); err != nil {
 					e := fmt.Errorf("could not unmarshal response: %w", err)
