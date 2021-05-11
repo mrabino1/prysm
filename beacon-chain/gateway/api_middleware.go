@@ -53,6 +53,7 @@ func (m *ApiProxyMiddleware) Run() error {
 	m.handleApiEndpoint("/eth/v1/node/peers", endpointData{getResponse: &PeersResponseJson{}})
 	m.handleApiEndpoint("/eth/v1/node/peers/{peer_id}", endpointData{getResponse: &PeerResponseJson{}})
 	m.handleApiEndpoint("/eth/v1/node/peer_count", endpointData{getResponse: &PeerCountResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/node/version", endpointData{getResponse: &VersionResponseJson{}})
 
 	return http.ListenAndServe(m.ProxyAddress, m.router)
 }

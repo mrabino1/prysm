@@ -106,6 +106,11 @@ type PeerCountResponse_PeerCountJson struct {
 	Disconnecting string `json:"disconnecting"`
 }
 
+// node/version
+type VersionResponseJson struct {
+	Data *VersionJson `json:"data"`
+}
+
 // Reusable types.
 type CheckpointJson struct {
 	Epoch string `json:"epoch"`
@@ -220,6 +225,9 @@ type PeerJson struct {
 	Address   string `json:"address"` // TODO: json tag should be "last_seen_p2p_address"
 	State     string `json:"state"`
 	Direction string `json:"direction"`
+}
+type VersionJson struct {
+	Version string `json:"version"`
 }
 
 // Error handling.
