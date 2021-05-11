@@ -63,11 +63,7 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 				writeError(writer, ErrorJson{Message: e.Error()})
 				return
 			}
-			// Posted graffiti needs to have length of 32 bytes.
-			if block, ok := data.postRequest.(*BeaconBlockContainerJson); ok {
-				b := bytesutil.ToBytes32([]byte(block.Message.Body.Graffiti))
-				block.Message.Body.Graffiti = hexutil.Encode(b[:])
-			}
+			prepareGraffiti(data)
 			// Encode all fields tagged 'hex' into a base64 string.
 			if err := processHex(data.postRequest, func(v reflect.Value) error {
 				b, err := bytesutil.FromHexString(v.String())
@@ -199,6 +195,14 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 			return
 		}
 	})
+}
+
+func prepareGraffiti(data endpointData) {
+	// Posted graffiti needs to have length of 32 bytes.
+	if block, ok := data.postRequest.(*BeaconBlockContainerJson); ok {
+		b := bytesutil.ToBytes32([]byte(block.Message.Body.Graffiti))
+		block.Message.Body.Graffiti = hexutil.Encode(b[:])
+	}
 }
 
 func writeError(writer http.ResponseWriter, e ErrorJson) {
