@@ -116,6 +116,11 @@ type ForkChoiceHeadsResponseJson struct {
 	Data []*ForkChoiceHeadJson `json:"data"`
 }
 
+// config/fork_schedule
+type ForkScheduleResponseJson struct {
+	Data []*ForkJson `json:"data"`
+}
+
 // Reusable types.
 type CheckpointJson struct {
 	Epoch string `json:"epoch"`

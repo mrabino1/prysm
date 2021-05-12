@@ -57,6 +57,7 @@ func (m *ApiProxyMiddleware) Run() error {
 	m.handleApiEndpoint("/eth/v1/node/health", endpointData{})
 	m.handleApiEndpoint("/eth/v1/debug/beacon/states/{state_id}", endpointData{getResponse: &BeaconStateResponseJson{}})
 	m.handleApiEndpoint("/eth/v1/debug/beacon/heads", endpointData{getResponse: &ForkChoiceHeadsResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/config/fork_schedule", endpointData{getResponse: &ForkScheduleResponseJson{}})
 
 	return http.ListenAndServe(m.ProxyAddress, m.router)
 }
