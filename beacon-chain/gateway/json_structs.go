@@ -24,11 +24,6 @@ type StateRootResponse_StateRootJson struct {
 type StateForkResponseJson struct {
 	Data *ForkJson `json:"data"`
 }
-type ForkJson struct {
-	PreviousVersion string `json:"previous_version" hex:"true"`
-	CurrentVersion  string `json:"current_version" hex:"true"`
-	Epoch           string `json:"epoch"`
-}
 
 // beacon/states/{state_id}/finality_checkpoints
 type StateFinalityCheckpointResponseJson struct {
@@ -109,6 +104,16 @@ type PeerCountResponse_PeerCountJson struct {
 // node/version
 type VersionResponseJson struct {
 	Data *VersionJson `json:"data"`
+}
+
+// debug/beacon/states/{state_id}
+type BeaconStateResponseJson struct {
+	Data *BeaconStateJson `json:"data"`
+}
+
+// debug/beacon/heads
+type ForkChoiceHeadsResponseJson struct {
+	Data []*ForkChoiceHeadJson `json:"data"`
 }
 
 // Reusable types.
@@ -228,6 +233,54 @@ type PeerJson struct {
 }
 type VersionJson struct {
 	Version string `json:"version"`
+}
+type BeaconStateJson struct {
+	GenesisTime                 string                    `json:"genesis_time"`
+	GenesisValidatorsRoot       string                    `json:"genesis_validators_root" hex:"true"`
+	Slot                        string                    `json:"slot"`
+	Fork                        *ForkJson                 `json:"fork"`
+	LatestBlockHeader           *BeaconBlockHeaderJson    `json:"latest_block_header"`
+	BlockRoots                  []string                  `json:"block_roots" hex:"true"`
+	StateRoots                  []string                  `json:"state_roots" hex:"true"`
+	HistoricalRoots             []string                  `json:"historical_roots" hex:"true"`
+	Eth1Data                    *Eth1DataJson             `json:"eth1_data"`
+	Eth1DataVotes               []*Eth1DataJson           `json:"eth1_data_votes"`
+	Eth1DepositIndex            string                    `json:"eth1_deposit_index"`
+	Validators                  []*ValidatorJson          `json:"validators"`
+	Balances                    []string                  `json:"balances"`
+	RandaoMixes                 []string                  `json:"randao_mixes" hex:"true"`
+	Slashings                   []string                  `json:"slashings"`
+	PreviousEpochAttestations   *[]PendingAttestationJson `json:"previous_epoch_attestations"`
+	CurrentEpochAttestations    *[]PendingAttestationJson `json:"current_epoch_attestations"`
+	JustificationBits           string                    `json:"justification_bits" hex:"true"`
+	PreviousJustifiedCheckpoint *CheckpointJson           `json:"previous_justified_checkpoint"`
+	CurrentJustifiedCheckpoint  *CheckpointJson           `json:"current_justified_checkpoint"`
+	FinalizedCheckpoint         *CheckpointJson           `json:"finalized_checkpoint"`
+}
+type ForkJson struct {
+	PreviousVersion string `json:"previous_version" hex:"true"`
+	CurrentVersion  string `json:"current_version" hex:"true"`
+	Epoch           string `json:"epoch"`
+}
+type ValidatorJson struct {
+	PublicKey                  string `json:"public_key" hex:"true"`
+	WithdrawalCredentials      string `json:"withdrawal_credentials" hex:"true"`
+	EffectiveBalance           string `json:"effective_balance"`
+	Slashed                    bool   `json:"slashed"`
+	ActivationEligibilityEpoch string `json:"activation_eligibility_epoch"`
+	ActivationEpoch            string `json:"activation_epoch"`
+	ExitEpoch                  string `json:"exit_epoch"`
+	WithdrawableEpoch          string `json:"withdrawable_epoch"`
+}
+type PendingAttestationJson struct {
+	AggregationBits string               `json:"aggregation_bits" hex:"true"`
+	Data            *AttestationDataJson `json:"data"`
+	InclusionDelay  string               `json:"inclusion_delay"`
+	ProposerIndex   string               `json:"proposer_index"`
+}
+type ForkChoiceHeadJson struct {
+	Root string `json:"root" hex:"true"`
+	Slot string `json:"slot"`
 }
 
 // Error handling.
