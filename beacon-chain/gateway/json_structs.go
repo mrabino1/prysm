@@ -243,8 +243,8 @@ type PeerJson struct {
 	PeerId    string `json:"peer_id"`
 	Enr       string `json:"enr"`
 	Address   string `json:"address"` // TODO: json tag should be "last_seen_p2p_address"
-	State     string `json:"state"`
-	Direction string `json:"direction"`
+	State     string `json:"state" enum:"true"`
+	Direction string `json:"direction" enum:"true"`
 }
 type VersionJson struct {
 	Version string `json:"version"`

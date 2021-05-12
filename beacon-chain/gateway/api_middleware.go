@@ -32,6 +32,11 @@ type endpointData struct {
 	getResponse interface{}
 }
 
+type fieldProcessor struct {
+	tag string
+	f   func(value reflect.Value) error
+}
+
 // Run starts the proxy, registering all proxy endpoints on ApiProxyMiddleware.ProxyAddress.
 func (m *ApiProxyMiddleware) Run() error {
 	m.router = mux.NewRouter()
@@ -68,7 +73,7 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 	m.router.HandleFunc(endpoint, func(writer http.ResponseWriter, request *http.Request) {
 		if request.Method == "POST" {
 			// https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttestations expects posting a top-level array.
-			// We make it more proto-friendly by wrapping it in a struct with a "data" field.
+			// We make it more proto-friendly by wrapping it in a struct with a 'data' field.
 			if err := wrapAttestationsArray(data, request); err != nil {
 				e := fmt.Errorf("could not decode request body: %w", err)
 				writeError(writer, ErrorJson{Message: e.Error()})
@@ -85,14 +90,12 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 			// Posted graffiti needs to have length of 32 bytes, but client is allowed to send data of other length.
 			prepareGraffiti(data)
 
-			// Encode all fields tagged 'hex' into a base64 string.
-			if err := processHex(data.postRequest, func(v reflect.Value) error {
-				b, err := bytesutil.FromHexString(v.String())
-				if err != nil {
-					return err
-				}
-				v.SetString(base64.StdEncoding.EncodeToString(b))
-				return nil
+			if err := processField(data.postRequest, []fieldProcessor{
+				// Encode all fields tagged 'hex' into a base64 string.
+				{
+					tag: "hex",
+					f:   hexToBase64Processor,
+				},
 			}); err != nil {
 				e := fmt.Errorf("could not process request hex data: %w", err)
 				writeError(writer, ErrorJson{Message: e.Error()})
@@ -170,14 +173,17 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 					writeError(writer, ErrorJson{Message: e.Error()})
 					return
 				}
-				// Decode all fields tagged 'hex' from a base64 string.
-				if err := processHex(data.getResponse, func(v reflect.Value) error {
-					b, err := base64.StdEncoding.DecodeString(v.Interface().(string))
-					if err != nil {
-						return err
-					}
-					v.SetString(hexutil.Encode(b))
-					return nil
+				if err := processField(data.getResponse, []fieldProcessor{
+					// Decode all fields tagged 'hex' from a base64 string.
+					{
+						tag: "hex",
+						f:   base64ToHexProcessor,
+					},
+					// Convert all fields tagged 'enum' to lowercase.
+					{
+						tag: "enum",
+						f:   enumToLowercaseProcessor,
+					},
 				}); err != nil {
 					e := fmt.Errorf("could not process response hex data: %w", err)
 					writeError(writer, ErrorJson{Message: e.Error()})
@@ -255,9 +261,9 @@ func writeError(writer http.ResponseWriter, e ErrorJson) {
 	}
 }
 
-// processHex calls 'processor' on any field that has the 'hex' tag set.
+// processField calls 'processor' on any field that has the 'hex' tag set.
 // It is a recursive function.
-func processHex(s interface{}, processor func(value reflect.Value) error) error {
+func processField(s interface{}, processors []fieldProcessor) error {
 	t := reflect.TypeOf(s).Elem()
 	v := reflect.Indirect(reflect.ValueOf(s))
 
@@ -269,38 +275,65 @@ func processHex(s interface{}, processor func(value reflect.Value) error) error 
 			// Recursively process slices to struct pointers.
 			if kind == reflect.Ptr && sliceElem.Elem().Kind() == reflect.Struct {
 				for j := 0; j < v.Field(i).Len(); j++ {
-					if err := processHex(v.Field(i).Index(j).Interface(), processor); err != nil {
+					if err := processField(v.Field(i).Index(j).Interface(), processors); err != nil {
 						return fmt.Errorf("could not process field: %w", err)
 					}
 				}
 			}
 			// Process each string in string slices.
 			if kind == reflect.String {
-				_, isBytes := t.Field(i).Tag.Lookup("hex")
-				if isBytes {
-					for j := 0; j < v.Field(i).Len(); j++ {
-						if err := processor(v.Field(i).Index(j)); err != nil {
-							return fmt.Errorf("could not process field: %w", err)
+				for _, proc := range processors {
+					_, hasTag := t.Field(i).Tag.Lookup(proc.tag)
+					if hasTag {
+						for j := 0; j < v.Field(i).Len(); j++ {
+							if err := proc.f(v.Field(i).Index(j)); err != nil {
+								return fmt.Errorf("could not process field: %w", err)
+							}
 						}
 					}
 				}
+
 			}
 		// Recursively process struct pointers.
 		case reflect.Ptr:
 			if v.Field(i).Elem().Kind() == reflect.Struct {
-				if err := processHex(v.Field(i).Interface(), processor); err != nil {
+				if err := processField(v.Field(i).Interface(), processors); err != nil {
 					return fmt.Errorf("could not process field: %w", err)
 				}
 			}
 		default:
-			f := t.Field(i)
-			// Process fields with 'hex' tag.
-			if _, isBytes := f.Tag.Lookup("hex"); isBytes {
-				if err := processor(v.Field(i)); err != nil {
-					return fmt.Errorf("could not process field: %w", err)
+			field := t.Field(i)
+			for _, proc := range processors {
+				if _, hasTag := field.Tag.Lookup(proc.tag); hasTag {
+					if err := proc.f(v.Field(i)); err != nil {
+						return fmt.Errorf("could not process field: %w", err)
+					}
 				}
 			}
 		}
 	}
+	return nil
+}
+
+func hexToBase64Processor(v reflect.Value) error {
+	b, err := bytesutil.FromHexString(v.String())
+	if err != nil {
+		return err
+	}
+	v.SetString(base64.StdEncoding.EncodeToString(b))
+	return nil
+}
+
+func base64ToHexProcessor(v reflect.Value) error {
+	b, err := base64.StdEncoding.DecodeString(v.Interface().(string))
+	if err != nil {
+		return err
+	}
+	v.SetString(hexutil.Encode(b))
+	return nil
+}
+
+func enumToLowercaseProcessor(v reflect.Value) error {
+	v.SetString(strings.ToLower(v.String()))
 	return nil
 }
