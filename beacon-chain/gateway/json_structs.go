@@ -121,6 +121,11 @@ type ForkScheduleResponseJson struct {
 	Data []*ForkJson `json:"data"`
 }
 
+// config/deposit_contract
+type DepositContractResponseJson struct {
+	Data *DepositContractJson `json:"data"`
+}
+
 // Reusable types.
 type CheckpointJson struct {
 	Epoch string `json:"epoch"`
@@ -286,6 +291,10 @@ type PendingAttestationJson struct {
 type ForkChoiceHeadJson struct {
 	Root string `json:"root" hex:"true"`
 	Slot string `json:"slot"`
+}
+type DepositContractJson struct {
+	ChainId string `json:"chain_id"`
+	Address string `json:"address"`
 }
 
 // Error handling.
