@@ -67,13 +67,24 @@ func (m *ApiProxyMiddleware) Run() error {
 func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointData) {
 	m.router.HandleFunc(endpoint, func(writer http.ResponseWriter, request *http.Request) {
 		if request.Method == "POST" {
+			// https://ethereum.github.io/eth2.0-APIs/#/Beacon/submitPoolAttestations expects posting a top-level array.
+			// We make it more proto-friendly by wrapping it in a struct with a "data" field.
+			if err := wrapAttestationsArray(data, request); err != nil {
+				e := fmt.Errorf("could not decode request body: %w", err)
+				writeError(writer, ErrorJson{Message: e.Error()})
+				return
+			}
+
 			// Deserialize the body into the 'm' struct, and post it to grpc-gateway.
 			if err := json.NewDecoder(request.Body).Decode(&data.postRequest); err != nil {
 				e := fmt.Errorf("could not decode request body: %w", err)
 				writeError(writer, ErrorJson{Message: e.Error()})
 				return
 			}
+
+			// Posted graffiti needs to have length of 32 bytes, but client is allowed to send data of other length.
 			prepareGraffiti(data)
+
 			// Encode all fields tagged 'hex' into a base64 string.
 			if err := processHex(data.postRequest, func(v reflect.Value) error {
 				b, err := bytesutil.FromHexString(v.String())
@@ -209,11 +220,26 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 }
 
 func prepareGraffiti(data endpointData) {
-	// Posted graffiti needs to have length of 32 bytes.
 	if block, ok := data.postRequest.(*BeaconBlockContainerJson); ok {
 		b := bytesutil.ToBytes32([]byte(block.Message.Body.Graffiti))
 		block.Message.Body.Graffiti = hexutil.Encode(b[:])
 	}
+}
+
+func wrapAttestationsArray(data endpointData, req *http.Request) error {
+	if _, ok := data.postRequest.(*SubmitAttestationRequestJson); ok {
+		atts := make([]*AttestationJson, 0)
+		if err := json.NewDecoder(req.Body).Decode(&atts); err != nil {
+			return fmt.Errorf("could not decode attestations array: %w", err)
+		}
+		j := &SubmitAttestationRequestJson{Data: atts}
+		b, err := json.Marshal(j)
+		if err != nil {
+			return fmt.Errorf("could not marshal wrapped attestations array: %w", err)
+		}
+		req.Body = ioutil.NopCloser(bytes.NewReader(b))
+	}
+	return nil
 }
 
 func writeError(writer http.ResponseWriter, e ErrorJson) {
