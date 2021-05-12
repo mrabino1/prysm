@@ -126,6 +126,11 @@ type DepositContractResponseJson struct {
 	Data *DepositContractJson `json:"data"`
 }
 
+// config/spec
+type SpecResponseJson struct {
+	Data interface{} `json:"data"`
+}
+
 // Reusable types.
 type CheckpointJson struct {
 	Epoch string `json:"epoch"`
