@@ -125,13 +125,13 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 			if s == "{state_id}" || s == "{block_id}" {
 				bRouteVar := []byte(mux.Vars(request)[s[1:len(s)-1]])
 				var routeVar string
-				ok, err := butil.IsBytes32Hex(bRouteVar)
+				isHex, err := butil.IsBytes32Hex(bRouteVar)
 				if err != nil {
 					e := fmt.Errorf("could not process URL parameter: %w", err)
 					writeError(writer, ErrorJson{Message: e.Error()})
 					return
 				}
-				if ok {
+				if isHex {
 					b, err := bytesutil.FromHexString(string(bRouteVar))
 					if err != nil {
 						e := fmt.Errorf("could not process URL parameter: %w", err)
