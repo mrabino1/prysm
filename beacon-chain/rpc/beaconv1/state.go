@@ -3,9 +3,9 @@ package beaconv1
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 	types "github.com/prysmaticlabs/eth2-types"
@@ -130,12 +130,7 @@ func (bs *Server) stateRoot(ctx context.Context, stateId []byte) ([]byte, error)
 		err  error
 	)
 
-	decodedHex, err := hex.DecodeString(fmt.Sprintf("%#x", stateId)[2:])
-	if err != nil {
-		return nil, err
-	}
-	stateIdString := string(decodedHex)
-	fmt.Println(stateIdString)
+	stateIdString := strings.ToLower(string(stateId))
 	switch stateIdString {
 	case "head":
 		root, err = bs.headStateRoot(ctx)
@@ -146,11 +141,7 @@ func (bs *Server) stateRoot(ctx context.Context, stateId []byte) ([]byte, error)
 	case "justified":
 		root, err = bs.justifiedStateRoot(ctx)
 	default:
-		ok, matchErr := bytesutil.IsBytes32Hex(stateId)
-		if matchErr != nil {
-			return nil, errors.Wrap(err, "could not parse ID")
-		}
-		if ok {
+		if len(stateId) == 32 {
 			root, err = bs.stateRootByHex(ctx, stateId)
 		} else {
 			slotNumber, parseErr := strconv.ParseUint(stateIdString, 10, 64)
