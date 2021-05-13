@@ -305,4 +305,5 @@ type DepositContractJson struct {
 // Error handling.
 type ErrorJson struct {
 	Message string `json:"message"`
+	Code    int    `json:"code"`
 }

@@ -77,14 +77,14 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 			// We make it more proto-friendly by wrapping it in a struct with a 'data' field.
 			if err := wrapAttestationsArray(data, request); err != nil {
 				e := fmt.Errorf("could not decode request body: %w", err)
-				writeError(writer, ErrorJson{Message: e.Error()})
+				writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 				return
 			}
 
 			// Deserialize the body into the 'm' struct, and post it to grpc-gateway.
 			if err := json.NewDecoder(request.Body).Decode(&data.postRequest); err != nil {
 				e := fmt.Errorf("could not decode request body: %w", err)
-				writeError(writer, ErrorJson{Message: e.Error()})
+				writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 				return
 			}
 
@@ -99,14 +99,14 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 				},
 			}); err != nil {
 				e := fmt.Errorf("could not process request hex data: %w", err)
-				writeError(writer, ErrorJson{Message: e.Error()})
+				writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 				return
 			}
 			// Serialize the struct, which now includes a base64-encoded value, into JSON.
 			j, err := json.Marshal(data.postRequest)
 			if err != nil {
 				e := fmt.Errorf("could not marshal request: %w", err)
-				writeError(writer, ErrorJson{Message: e.Error()})
+				writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 				return
 			}
 			// Set the body to the new JSON.
@@ -128,14 +128,14 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 				isHex, err := butil.IsBytes32Hex(bRouteVar)
 				if err != nil {
 					e := fmt.Errorf("could not process URL parameter: %w", err)
-					writeError(writer, ErrorJson{Message: e.Error()})
+					writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 					return
 				}
 				if isHex {
 					b, err := bytesutil.FromHexString(string(bRouteVar))
 					if err != nil {
 						e := fmt.Errorf("could not process URL parameter: %w", err)
-						writeError(writer, ErrorJson{Message: e.Error()})
+						writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 						return
 					}
 					routeVar = base64.StdEncoding.EncodeToString(b)
@@ -152,11 +152,11 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 		grpcResp, err := http.DefaultClient.Do(request)
 		if err != nil {
 			e := fmt.Errorf("could not proxy request: %w", err)
-			writeError(writer, ErrorJson{Message: e.Error()})
+			writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 			return
 		}
 		if grpcResp == nil {
-			writeError(writer, ErrorJson{Message: "nil response from gRPC-gateway"})
+			writeError(writer, ErrorJson{Message: "nil response from gRPC-gateway", Code: http.StatusInternalServerError})
 			return
 		}
 
@@ -164,13 +164,13 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 		body, err := ioutil.ReadAll(grpcResp.Body)
 		if err != nil {
 			e := fmt.Errorf("could not read response body: %w", err)
-			writeError(writer, ErrorJson{Message: e.Error()})
+			writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 			return
 		}
 		errorJson := ErrorJson{}
 		if err := json.Unmarshal(body, &errorJson); err != nil {
 			e := fmt.Errorf("could not unmarshal error: %w", err)
-			writeError(writer, ErrorJson{Message: e.Error()})
+			writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 			return
 		}
 		var j []byte
@@ -181,6 +181,8 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 					writer.Header().Set(h, v)
 				}
 			}
+			// Set code to HTTP code because unmarshalled body contained gRPC code.
+			errorJson.Code = grpcResp.StatusCode
 			writeError(writer, errorJson)
 			return
 		} else {
@@ -189,7 +191,7 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 				// Deserialize the output of grpc-gateway.
 				if err := json.Unmarshal(body, &data.getResponse); err != nil {
 					e := fmt.Errorf("could not unmarshal response: %w", err)
-					writeError(writer, ErrorJson{Message: e.Error()})
+					writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 					return
 				}
 				if err := processField(data.getResponse, []fieldProcessor{
@@ -205,14 +207,14 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 					},
 				}); err != nil {
 					e := fmt.Errorf("could not process response hex data: %w", err)
-					writeError(writer, ErrorJson{Message: e.Error()})
+					writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 					return
 				}
 				// Serialize the return value into JSON.
 				j, err = json.Marshal(data.getResponse)
 				if err != nil {
 					e := fmt.Errorf("could not marshal response: %w", err)
-					writeError(writer, ErrorJson{Message: e.Error()})
+					writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 					return
 				}
 			}
@@ -229,7 +231,7 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 			writer.WriteHeader(grpcResp.StatusCode)
 			if _, err := io.Copy(writer, ioutil.NopCloser(bytes.NewReader(j))); err != nil {
 				e := fmt.Errorf("could not write response message: %w", err)
-				writeError(writer, ErrorJson{Message: e.Error()})
+				writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 				return
 			}
 		} else if request.Method == "POST" {
@@ -238,7 +240,7 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 
 		if err := grpcResp.Body.Close(); err != nil {
 			e := fmt.Errorf("could not close response body: %w", err)
-			writeError(writer, ErrorJson{Message: e.Error()})
+			writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
 			return
 		}
 	})
@@ -274,7 +276,7 @@ func writeError(writer http.ResponseWriter, e ErrorJson) {
 	}
 	writer.Header().Set("Content-Length", strconv.Itoa(len(j)))
 	writer.Header().Set("Content-Type", "application/json")
-	writer.WriteHeader(http.StatusInternalServerError)
+	writer.WriteHeader(e.Code)
 	if _, err := io.Copy(writer, ioutil.NopCloser(bytes.NewReader(j))); err != nil {
 		log.WithError(err).Error("could not write error message")
 	}
