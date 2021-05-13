@@ -14,6 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gorilla/mux"
+	butil "github.com/prysmaticlabs/prysm/shared/bytesutil"
 	"github.com/wealdtech/go-bytesutil"
 )
 
@@ -122,7 +123,25 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 		splitEndpoint := strings.Split(endpoint, "/")
 		for i, s := range splitEndpoint {
 			if s == "{state_id}" || s == "{block_id}" {
-				routeVar := base64.StdEncoding.EncodeToString([]byte(mux.Vars(request)[s[1:len(s)-1]]))
+				bRouteVar := []byte(mux.Vars(request)[s[1:len(s)-1]])
+				var routeVar string
+				ok, err := butil.IsBytes32Hex(bRouteVar)
+				if err != nil {
+					e := fmt.Errorf("could not process URL parameter: %w", err)
+					writeError(writer, ErrorJson{Message: e.Error()})
+					return
+				}
+				if ok {
+					b, err := bytesutil.FromHexString(string(bRouteVar))
+					if err != nil {
+						e := fmt.Errorf("could not process URL parameter: %w", err)
+						writeError(writer, ErrorJson{Message: e.Error()})
+						return
+					}
+					routeVar = base64.StdEncoding.EncodeToString(b)
+				} else {
+					routeVar = base64.StdEncoding.EncodeToString(bRouteVar)
+				}
 				splitPath := strings.Split(request.URL.Path, "/")
 				splitPath[i] = routeVar
 				request.URL.Path = strings.Join(splitPath, "/")
