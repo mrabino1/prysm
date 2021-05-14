@@ -1,5 +1,7 @@
 package gateway
 
+import "github.com/prysmaticlabs/prysm/beacon-chain/rpc/beaconv1"
+
 // Beacon
 
 // beacon/genesis
@@ -131,7 +133,10 @@ type SpecResponseJson struct {
 	Data interface{} `json:"data"`
 }
 
+//----------------
 // Reusable types.
+//----------------
+
 type CheckpointJson struct {
 	Epoch string `json:"epoch"`
 	Root  string `json:"root" hex:"true"`
@@ -302,8 +307,32 @@ type DepositContractJson struct {
 	Address string `json:"address"`
 }
 
+// ---------------
 // Error handling.
-type ErrorJson struct {
+// ---------------
+
+type ErrorJson interface {
+	StatusCode() int
+	SetCode(code int)
+	Msg() string
+}
+type DefaultErrorJson struct {
 	Message string `json:"message"`
 	Code    int    `json:"code"`
+}
+type SubmitAttestationsErrorJson struct {
+	DefaultErrorJson
+	Failures []*beaconv1.SingleAttestationVerificationFailure `json:"failures"`
+}
+
+func (e *DefaultErrorJson) StatusCode() int {
+	return e.Code
+}
+
+func (e *DefaultErrorJson) Msg() string {
+	return e.Message
+}
+
+func (e *DefaultErrorJson) SetCode(code int) {
+	e.Code = code
 }

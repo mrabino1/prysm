@@ -14,6 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gorilla/mux"
+	"github.com/prysmaticlabs/prysm/beacon-chain/rpc/beaconv1"
 	butil "github.com/prysmaticlabs/prysm/shared/bytesutil"
 	"github.com/wealdtech/go-bytesutil"
 )
@@ -31,6 +32,7 @@ type ApiProxyMiddleware struct {
 type endpointData struct {
 	postRequest interface{}
 	getResponse interface{}
+	err         ErrorJson
 }
 
 type fieldProcessor struct {
@@ -42,30 +44,30 @@ type fieldProcessor struct {
 func (m *ApiProxyMiddleware) Run() error {
 	m.router = mux.NewRouter()
 
-	m.handleApiEndpoint("/eth/v1/beacon/genesis", endpointData{getResponse: &GenesisResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/beacon/states/{state_id}/root", endpointData{getResponse: &StateRootResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/beacon/states/{state_id}/fork", endpointData{getResponse: &StateForkResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/beacon/states/{state_id}/finality_checkpoints", endpointData{getResponse: &StateFinalityCheckpointResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/beacon/headers/{block_id}", endpointData{getResponse: &BlockHeaderResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/beacon/blocks", endpointData{postRequest: &BeaconBlockContainerJson{}})
-	m.handleApiEndpoint("/eth/v1/beacon/blocks/{block_id}", endpointData{getResponse: &BlockResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/beacon/blocks/{block_id}/root", endpointData{getResponse: &BlockRootResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/beacon/blocks/{block_id}/attestations", endpointData{getResponse: &BlockAttestationsResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/beacon/pool/attestations", endpointData{postRequest: &SubmitAttestationRequestJson{}, getResponse: &BlockAttestationsResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/beacon/pool/attester_slashings", endpointData{postRequest: &AttesterSlashingJson{}, getResponse: &AttesterSlashingsPoolResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/beacon/pool/proposer_slashings", endpointData{postRequest: &ProposerSlashingJson{}, getResponse: &ProposerSlashingsPoolResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/beacon/pool/voluntary_exits", endpointData{postRequest: &SignedVoluntaryExitJson{}, getResponse: &VoluntaryExitsPoolResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/node/identity", endpointData{getResponse: &IdentityResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/node/peers", endpointData{getResponse: &PeersResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/node/peers/{peer_id}", endpointData{getResponse: &PeerResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/node/peer_count", endpointData{getResponse: &PeerCountResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/node/version", endpointData{getResponse: &VersionResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/node/health", endpointData{})
-	m.handleApiEndpoint("/eth/v1/debug/beacon/states/{state_id}", endpointData{getResponse: &BeaconStateResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/debug/beacon/heads", endpointData{getResponse: &ForkChoiceHeadsResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/config/fork_schedule", endpointData{getResponse: &ForkScheduleResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/config/deposit_contract", endpointData{getResponse: &DepositContractResponseJson{}})
-	m.handleApiEndpoint("/eth/v1/config/spec", endpointData{getResponse: &SpecResponseJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/genesis", endpointData{getResponse: &GenesisResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/states/{state_id}/root", endpointData{getResponse: &StateRootResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/states/{state_id}/fork", endpointData{getResponse: &StateForkResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/states/{state_id}/finality_checkpoints", endpointData{getResponse: &StateFinalityCheckpointResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/headers/{block_id}", endpointData{getResponse: &BlockHeaderResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/blocks", endpointData{postRequest: &BeaconBlockContainerJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/blocks/{block_id}", endpointData{getResponse: &BlockResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/blocks/{block_id}/root", endpointData{getResponse: &BlockRootResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/blocks/{block_id}/attestations", endpointData{getResponse: &BlockAttestationsResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/pool/attestations", endpointData{postRequest: &SubmitAttestationRequestJson{}, getResponse: &BlockAttestationsResponseJson{}, err: &SubmitAttestationsErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/pool/attester_slashings", endpointData{postRequest: &AttesterSlashingJson{}, getResponse: &AttesterSlashingsPoolResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/pool/proposer_slashings", endpointData{postRequest: &ProposerSlashingJson{}, getResponse: &ProposerSlashingsPoolResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/beacon/pool/voluntary_exits", endpointData{postRequest: &SignedVoluntaryExitJson{}, getResponse: &VoluntaryExitsPoolResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/node/identity", endpointData{getResponse: &IdentityResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/node/peers", endpointData{getResponse: &PeersResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/node/peers/{peer_id}", endpointData{getResponse: &PeerResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/node/peer_count", endpointData{getResponse: &PeerCountResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/node/version", endpointData{getResponse: &VersionResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/node/health", endpointData{err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/debug/beacon/states/{state_id}", endpointData{getResponse: &BeaconStateResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/debug/beacon/heads", endpointData{getResponse: &ForkChoiceHeadsResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/config/fork_schedule", endpointData{getResponse: &ForkScheduleResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/config/deposit_contract", endpointData{getResponse: &DepositContractResponseJson{}, err: &DefaultErrorJson{}})
+	m.handleApiEndpoint("/eth/v1/config/spec", endpointData{getResponse: &SpecResponseJson{}, err: &DefaultErrorJson{}})
 
 	return http.ListenAndServe(m.ProxyAddress, m.router)
 }
@@ -77,14 +79,14 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 			// We make it more proto-friendly by wrapping it in a struct with a 'data' field.
 			if err := wrapAttestationsArray(data, request); err != nil {
 				e := fmt.Errorf("could not decode request body: %w", err)
-				writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+				writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 				return
 			}
 
 			// Deserialize the body into the 'm' struct, and post it to grpc-gateway.
 			if err := json.NewDecoder(request.Body).Decode(&data.postRequest); err != nil {
 				e := fmt.Errorf("could not decode request body: %w", err)
-				writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+				writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 				return
 			}
 
@@ -99,14 +101,14 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 				},
 			}); err != nil {
 				e := fmt.Errorf("could not process request hex data: %w", err)
-				writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+				writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 				return
 			}
 			// Serialize the struct, which now includes a base64-encoded value, into JSON.
 			j, err := json.Marshal(data.postRequest)
 			if err != nil {
 				e := fmt.Errorf("could not marshal request: %w", err)
-				writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+				writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 				return
 			}
 			// Set the body to the new JSON.
@@ -128,14 +130,14 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 				isHex, err := butil.IsBytes32Hex(bRouteVar)
 				if err != nil {
 					e := fmt.Errorf("could not process URL parameter: %w", err)
-					writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+					writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 					return
 				}
 				if isHex {
 					b, err := bytesutil.FromHexString(string(bRouteVar))
 					if err != nil {
 						e := fmt.Errorf("could not process URL parameter: %w", err)
-						writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+						writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 						return
 					}
 					routeVar = base64.StdEncoding.EncodeToString(b)
@@ -152,11 +154,11 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 		grpcResp, err := http.DefaultClient.Do(request)
 		if err != nil {
 			e := fmt.Errorf("could not proxy request: %w", err)
-			writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+			writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 			return
 		}
 		if grpcResp == nil {
-			writeError(writer, ErrorJson{Message: "nil response from gRPC-gateway", Code: http.StatusInternalServerError})
+			writeError(writer, &DefaultErrorJson{Message: "nil response from gRPC-gateway", Code: http.StatusInternalServerError}, nil)
 			return
 		}
 
@@ -164,17 +166,16 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 		body, err := ioutil.ReadAll(grpcResp.Body)
 		if err != nil {
 			e := fmt.Errorf("could not read response body: %w", err)
-			writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+			writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 			return
 		}
-		errorJson := ErrorJson{}
-		if err := json.Unmarshal(body, &errorJson); err != nil {
+		if err := json.Unmarshal(body, data.err); err != nil {
 			e := fmt.Errorf("could not unmarshal error: %w", err)
-			writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+			writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 			return
 		}
 		var j []byte
-		if errorJson.Message != "" {
+		if data.err.Msg() != "" {
 			// Something went wrong, but the request completed, meaning we can write headers and the error message.
 			for h, vs := range grpcResp.Header {
 				for _, v := range vs {
@@ -182,8 +183,8 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 				}
 			}
 			// Set code to HTTP code because unmarshalled body contained gRPC code.
-			errorJson.Code = grpcResp.StatusCode
-			writeError(writer, errorJson)
+			data.err.SetCode(grpcResp.StatusCode)
+			writeError(writer, data.err, grpcResp.Header)
 			return
 		} else {
 			// Don't do anything if the response is only a status code.
@@ -191,7 +192,7 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 				// Deserialize the output of grpc-gateway.
 				if err := json.Unmarshal(body, &data.getResponse); err != nil {
 					e := fmt.Errorf("could not unmarshal response: %w", err)
-					writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+					writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 					return
 				}
 				if err := processField(data.getResponse, []fieldProcessor{
@@ -207,14 +208,14 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 					},
 				}); err != nil {
 					e := fmt.Errorf("could not process response hex data: %w", err)
-					writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+					writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 					return
 				}
 				// Serialize the return value into JSON.
 				j, err = json.Marshal(data.getResponse)
 				if err != nil {
 					e := fmt.Errorf("could not marshal response: %w", err)
-					writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+					writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 					return
 				}
 			}
@@ -231,7 +232,7 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 			writer.WriteHeader(grpcResp.StatusCode)
 			if _, err := io.Copy(writer, ioutil.NopCloser(bytes.NewReader(j))); err != nil {
 				e := fmt.Errorf("could not write response message: %w", err)
-				writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+				writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 				return
 			}
 		} else if request.Method == "POST" {
@@ -240,7 +241,7 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 
 		if err := grpcResp.Body.Close(); err != nil {
 			e := fmt.Errorf("could not close response body: %w", err)
-			writeError(writer, ErrorJson{Message: e.Error(), Code: http.StatusInternalServerError})
+			writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 			return
 		}
 	})
@@ -269,17 +270,30 @@ func wrapAttestationsArray(data endpointData, req *http.Request) error {
 	return nil
 }
 
-func writeError(writer http.ResponseWriter, e ErrorJson) {
+func writeError(writer http.ResponseWriter, e ErrorJson, responseHeader http.Header) {
+	// Include custom error in the error JSON.
+	if responseHeader != nil {
+		customError, ok := responseHeader["Grpc-Metadata-"+beaconv1.CustomErrorMetadataKey]
+		if ok {
+			// Assume header has only one value and read the 0 index.
+			if err := json.Unmarshal([]byte(customError[0]), e); err != nil {
+				log.WithError(err).Error("Could not unmarshal custom error message")
+				return
+			}
+		}
+	}
+
 	j, err := json.Marshal(e)
 	if err != nil {
-		log.WithError(err).Error("could not marshal error message")
+		log.WithError(err).Error("Could not marshal error message")
 		return
 	}
+
 	writer.Header().Set("Content-Length", strconv.Itoa(len(j)))
 	writer.Header().Set("Content-Type", "application/json")
-	writer.WriteHeader(e.Code)
+	writer.WriteHeader(e.StatusCode())
 	if _, err := io.Copy(writer, ioutil.NopCloser(bytes.NewReader(j))); err != nil {
-		log.WithError(err).Error("could not write error message")
+		log.WithError(err).Error("Could not write error message")
 	}
 }
 
