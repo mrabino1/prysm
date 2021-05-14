@@ -273,6 +273,7 @@ func writeError(writer http.ResponseWriter, e ErrorJson) {
 	j, err := json.Marshal(e)
 	if err != nil {
 		log.WithError(err).Error("could not marshal error message")
+		return
 	}
 	writer.Header().Set("Content-Length", strconv.Itoa(len(j)))
 	writer.Header().Set("Content-Type", "application/json")
