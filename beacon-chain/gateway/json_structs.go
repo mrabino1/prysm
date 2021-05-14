@@ -9,7 +9,7 @@ type GenesisResponseJson struct {
 	Data *GenesisResponse_GenesisJson `json:"data"`
 }
 type GenesisResponse_GenesisJson struct {
-	GenesisTime           string `json:"genesis_time"`
+	GenesisTime           string `json:"genesis_time" time:"true"`
 	GenesisValidatorsRoot string `json:"genesis_validators_root" hex:"true"`
 	GenesisForkVersion    string `json:"genesis_fork_version" hex:"true"`
 }
@@ -255,7 +255,7 @@ type VersionJson struct {
 	Version string `json:"version"`
 }
 type BeaconStateJson struct {
-	GenesisTime                 string                    `json:"genesis_time"`
+	GenesisTime                 string                    `json:"genesis_time" time:"true"`
 	GenesisValidatorsRoot       string                    `json:"genesis_validators_root" hex:"true"`
 	Slot                        string                    `json:"slot"`
 	Fork                        *ForkJson                 `json:"fork"`

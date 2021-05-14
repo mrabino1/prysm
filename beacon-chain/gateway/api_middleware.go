@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gorilla/mux"
@@ -89,12 +90,10 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 				writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 				return
 			}
-
 			// Posted graffiti needs to have length of 32 bytes, but client is allowed to send data of other length.
 			prepareGraffiti(data)
-
+			// Apply processing functions to fields with specific tags.
 			if err := processField(data.postRequest, []fieldProcessor{
-				// Encode all fields tagged 'hex' into a base64 string.
 				{
 					tag: "hex",
 					f:   hexToBase64Processor,
@@ -195,16 +194,19 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, data endpointDat
 					writeError(writer, &DefaultErrorJson{Message: e.Error(), Code: http.StatusInternalServerError}, nil)
 					return
 				}
+				// Apply processing functions to fields with specific tags.
 				if err := processField(data.getResponse, []fieldProcessor{
-					// Decode all fields tagged 'hex' from a base64 string.
 					{
 						tag: "hex",
 						f:   base64ToHexProcessor,
 					},
-					// Convert all fields tagged 'enum' to lowercase.
 					{
 						tag: "enum",
 						f:   enumToLowercaseProcessor,
+					},
+					{
+						tag: "time",
+						f:   timeToUnixProcessor,
 					},
 				}); err != nil {
 					e := fmt.Errorf("could not process response hex data: %w", err)
@@ -371,5 +373,14 @@ func base64ToHexProcessor(v reflect.Value) error {
 
 func enumToLowercaseProcessor(v reflect.Value) error {
 	v.SetString(strings.ToLower(v.String()))
+	return nil
+}
+
+func timeToUnixProcessor(v reflect.Value) error {
+	t, err := time.Parse(time.RFC3339, v.String())
+	if err != nil {
+		return err
+	}
+	v.SetString(strconv.FormatUint(uint64(t.Unix()), 10))
 	return nil
 }
