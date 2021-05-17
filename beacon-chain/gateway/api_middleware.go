@@ -222,9 +222,10 @@ func (m *ApiProxyMiddleware) handleApiEndpoint(endpoint string, info endpointInf
 		request.RequestURI = ""
 
 		// Handle hex in URL parameters.
-		splitEndpoint := strings.Split(endpoint, "/")
-		for i, s := range splitEndpoint {
-			if s == "{state_id}" || s == "{block_id}" {
+		segments := strings.Split(endpoint, "/")
+		for i, s := range segments {
+			// We only care about segments which are parameterized.
+			if len(s) > 0 && s[0] == '{' && s[len(s)-1] == '}' {
 				bRouteVar := []byte(mux.Vars(request)[s[1:len(s)-1]])
 				var routeVar string
 				isHex, err := butil.IsBytes32Hex(bRouteVar)
